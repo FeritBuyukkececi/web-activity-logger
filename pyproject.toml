@@ -1,5 +1,5 @@
 [project]
-name = "web-logger"
+name = "web-activity-logger"
 version = "0.1.0"
 description = "Browser extension + Playwright tool for recording user interactions and network requests"
 requires-python = ">=3.14"
