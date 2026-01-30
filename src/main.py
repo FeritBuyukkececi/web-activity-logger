@@ -15,7 +15,7 @@ from playwright.async_api import async_playwright, BrowserContext, Page
 
 from .merger import add_event, create_session, export_session, finalize_session
 from .network import setup_network_capture
-from .utils import extract_root_domain
+from .utils import extract_domain_name, extract_root_domain
 
 
 # Extension directory path (relative to this file)
@@ -121,12 +121,13 @@ async def create_browser_context(playwright) -> BrowserContext:
     return context
 
 
-async def run_recording_session(start_url: str | None = None) -> str:
+async def run_recording_session(start_url: str, tag: str) -> str:
     """
     Run the main recording session.
 
     Args:
-        start_url: Optional URL to navigate to on start.
+        start_url: URL to navigate to on start.
+        tag: Tag for organizing logs (e.g., "health", "finance").
 
     Returns:
         Path to the exported log file.
@@ -142,25 +143,15 @@ async def run_recording_session(start_url: str | None = None) -> str:
         else:
             page = await context.new_page()
 
-        # Track initial DOM capture
-        initial_dom = None
+        # Navigate to start URL
+        print(f"Navigating to {start_url}...")
+        await page.goto(start_url)
+        await page.wait_for_load_state("domcontentloaded")
+        initial_dom = await capture_initial_dom(page)
+        root_domain = extract_root_domain(start_url)
 
-        # Navigate to start URL if provided
-        if start_url:
-            print(f"Navigating to {start_url}...")
-            await page.goto(start_url)
-            await page.wait_for_load_state("domcontentloaded")
-            initial_dom = await capture_initial_dom(page)
-            root_domain = extract_root_domain(start_url)
-        else:
-            # Wait for user to navigate somewhere
-            root_domain = None
-            print("No start URL provided. Navigate to a page to begin recording.")
-            print("Domain filtering will be based on the first navigation.")
-
-        # Create session (use placeholder if no URL yet)
-        session_url = start_url or "about:blank"
-        session = create_session(session_url)
+        # Create session
+        session = create_session(start_url)
 
         # Track if we have set up listeners
         listeners_setup = False
@@ -193,29 +184,16 @@ async def run_recording_session(start_url: str | None = None) -> str:
         print("\nRecording started. Press Ctrl+C to stop and export.")
         print("-" * 50)
 
+        # Set up listeners immediately since we have the URL
+        print(f"Recording for domain: {root_domain}")
+        await setup_page_listeners(page, session, root_domain)
+        listeners_setup = True
+
         try:
             while not shutdown_event.is_set():
-                # Check if we need to set up listeners (first navigation)
-                if not listeners_setup:
-                    current_url = page.url
-                    if current_url and current_url != "about:blank":
-                        if root_domain is None:
-                            root_domain = extract_root_domain(current_url)
-                            session["session"]["startUrl"] = current_url
-                            session["session"]["domain"] = root_domain
-
-                        # Capture initial DOM if not already captured
-                        if initial_dom is None:
-                            initial_dom = await capture_initial_dom(page)
-
-                        print(f"Recording for domain: {root_domain}")
-                        await setup_page_listeners(page, session, root_domain)
-                        listeners_setup = True
-
                 # Poll for extension events
-                if listeners_setup:
-                    for p in context.pages:
-                        await poll_extension_events(p, session)
+                for p in context.pages:
+                    await poll_extension_events(p, session)
 
                 # Small delay to prevent busy loop
                 try:
@@ -230,13 +208,12 @@ async def run_recording_session(start_url: str | None = None) -> str:
         print("\nFinalizing session...")
         finalize_session(session)
 
-        # Generate session folder name: YYYYMMDDTHHMMSS_domain
-        dt_str = datetime.now().strftime("%Y%m%dT%H%M%S")
-        domain_part = root_domain.replace(".", "_") if root_domain else "unknown"
-        session_folder = f"{dt_str}_{domain_part}"
+        # Generate session folder: logs/{tag}/{domain_name}/{YYYYMMDD_HHMMSS}/
+        dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        domain_name = extract_domain_name(start_url)
 
         logs_dir = Path(__file__).parent.parent / "logs"
-        session_dir = logs_dir / session_folder
+        session_dir = logs_dir / tag / domain_name / dt_str
         session_dir.mkdir(parents=True, exist_ok=True)
 
         # Export session JSON
@@ -267,21 +244,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m src.main                      # Start with blank page
-  python -m src.main https://example.com  # Start at specific URL
+  python -m src.main --tag=health --url="https://www.allianz.com.tr/tr_TR/"
+  python -m src.main --tag=finance --url="https://example.com/products"
         """,
     )
     parser.add_argument(
-        "url",
-        nargs="?",
-        default=None,
-        help="Optional start URL to navigate to",
+        "--tag",
+        required=True,
+        help="Tag for organizing logs (e.g., health, finance, ecommerce)",
+    )
+    parser.add_argument(
+        "--url",
+        required=True,
+        help="URL to navigate to and start recording",
     )
 
     args = parser.parse_args()
 
     try:
-        filepath = asyncio.run(run_recording_session(args.url))
+        filepath = asyncio.run(run_recording_session(args.url, args.tag))
         print(f"\nDone! Log saved to: {filepath}")
     except KeyboardInterrupt:
         print("\nRecording interrupted.")

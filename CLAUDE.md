@@ -118,7 +118,10 @@ Extension captures these specific attributes from interacted elements:
 - Python `>=3.14` (specified in pyproject.toml)
 
 ## Commands
-- `python -m src.main` — Launch Playwright browser with extension, start recording
+- `python -m src.main --tag=<tag> --url="<url>"` — Launch Playwright browser with extension, start recording
+  - `--tag`: Required. Tag for organizing logs (e.g., health, finance, ecommerce)
+  - `--url`: Required. URL to navigate to and start recording
+  - Example: `python -m src.main --tag=health --url="https://www.allianz.com.tr/tr_TR/"`
 - `pytest` — Run all tests (unit + integration)
 
 ## Workflow
@@ -153,9 +156,11 @@ web-logger/
 │   ├── test_extension.py
 │   └── test_integration.py  — End-to-end workflow tests
 └── logs/                     — Exported session logs
-    └── {YYYYMMDDTHHMMSS}_{domain}/
-        ├── session.json      — Event log (interactions + network)
-        └── initial_dom.html  — Initial page DOM snapshot after load
+    └── {tag}/                — Tag-based organization (e.g., health, finance)
+        └── {domain}/         — Domain name without TLD (e.g., allianz, example)
+            └── {YYYYMMDD_HHMMSS}/  — Session timestamp
+                ├── session.json      — Event log (interactions + network)
+                └── initial_dom.html  — Initial page DOM snapshot after load
 ```
 
 ## Domain Filtering Logic
@@ -163,6 +168,13 @@ Given a page URL `https://shop.example.com/products`:
 - Extract root domain: `example.com`
 - Capture requests to: `example.com`, `*.example.com`
 - Ignore: `google-analytics.com`, `facebook.com`, `cdn.jsdelivr.net`, etc.
+
+## Domain Name Extraction
+The `extract_domain_name(url)` function extracts just the domain name (without TLD) for folder organization:
+- `"https://www.allianz.com.tr/path"` → `"allianz"`
+- `"https://shop.example.co.uk/path"` → `"example"`
+- `"http://localhost/path"` → `"localhost"`
+- `"http://192.168.1.1/path"` → `"192.168.1.1"`
 
 ## LLM Output Format
 Final export is chronologically ordered, merging interactions and requests, so an LLM can trace: "User clicked X → triggered POST to /api/Y with body Z"

@@ -37,12 +37,16 @@ playwright install chromium
 ## Usage
 
 ```bash
-# Start recording (opens browser, navigate manually)
-python -m src.main
+# Start recording with tag and URL (both required)
+python -m src.main --tag=health --url="https://www.allianz.com.tr/tr_TR/"
 
-# Start recording with a specific URL
-python -m src.main https://example.com
+# Another example
+python -m src.main --tag=finance --url="https://example.com/products"
 ```
+
+Arguments:
+- `--tag`: Required. Tag for organizing logs (e.g., health, finance, ecommerce)
+- `--url`: Required. URL to navigate to and start recording
 
 Press `Ctrl+C` to stop recording and export the session.
 
@@ -52,10 +56,14 @@ Sessions are saved to `logs/` with the following structure:
 
 ```
 logs/
-└── 20250128T143045_example_com/
-    ├── session.json      # Merged interaction + network events
-    └── initial_dom.html  # Initial page DOM snapshot
+└── {tag}/                    # Tag-based organization (e.g., health, finance)
+    └── {domain}/             # Domain name without TLD (e.g., allianz, example)
+        └── {YYYYMMDD_HHMMSS}/  # Session timestamp
+            ├── session.json      # Merged interaction + network events
+            └── initial_dom.html  # Initial page DOM snapshot
 ```
+
+Example: `logs/health/allianz/20260130_173732/session.json`
 
 ### Session JSON Format
 

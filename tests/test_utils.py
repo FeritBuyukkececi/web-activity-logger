@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.utils import extract_root_domain, generate_selector, is_subdomain_of
+from src.utils import extract_domain_name, extract_root_domain, generate_selector, is_subdomain_of
 
 
 class TestExtractRootDomain:
@@ -35,6 +35,33 @@ class TestExtractRootDomain:
         assert extract_root_domain("https://shop.example.co.uk/path") == "example.co.uk"
         assert extract_root_domain("https://www.example.com.au/") == "example.com.au"
         assert extract_root_domain("https://sub.domain.example.org.uk/") == "example.org.uk"
+
+
+class TestExtractDomainName:
+    """Tests for extract_domain_name function."""
+
+    def test_standard_url(self):
+        """extract_domain_name handles standard URLs."""
+        assert extract_domain_name("https://shop.example.com/path") == "example"
+        assert extract_domain_name("https://www.example.com/") == "example"
+        assert extract_domain_name("http://example.com/page.html") == "example"
+
+    def test_multi_level_tld(self):
+        """extract_domain_name handles multi-level TLDs (e.g., .co.uk, .com.tr)."""
+        assert extract_domain_name("https://www.allianz.com.tr/path") == "allianz"
+        assert extract_domain_name("https://shop.example.co.uk/path") == "example"
+        assert extract_domain_name("https://www.example.com.au/") == "example"
+
+    def test_localhost(self):
+        """extract_domain_name handles localhost."""
+        assert extract_domain_name("http://localhost/path") == "localhost"
+        assert extract_domain_name("http://localhost:3000/") == "localhost"
+
+    def test_ip_address(self):
+        """extract_domain_name handles IP addresses."""
+        assert extract_domain_name("http://192.168.1.1/path") == "192.168.1.1"
+        assert extract_domain_name("http://10.0.0.1:8080/") == "10.0.0.1"
+        assert extract_domain_name("http://127.0.0.1/") == "127.0.0.1"
 
 
 class TestIsSubdomainOf:

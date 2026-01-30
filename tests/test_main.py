@@ -361,30 +361,35 @@ class TestSessionFolderStructure:
     """Tests for session folder naming and structure."""
 
     def test_session_folder_name_format(self):
-        """Test that session folder name matches expected format."""
+        """Test that session folder structure matches expected format: logs/{tag}/{domain}/{YYYYMMDD_HHMMSS}/"""
         import re
         from datetime import datetime
 
-        # Generate folder name the same way as main.py
-        dt_str = datetime.now().strftime("%Y%m%dT%H%M%S")
-        domain_part = "example_com"
-        session_folder = f"{dt_str}_{domain_part}"
+        # Generate folder structure the same way as main.py
+        tag = "health"
+        domain_name = "allianz"
+        dt_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Verify format: YYYYMMDDTHHMMSS_domain
-        pattern = r"^\d{8}T\d{6}_[a-z0-9_]+$"
-        assert re.match(pattern, session_folder)
+        # Verify datetime format: YYYYMMDD_HHMMSS
+        pattern = r"^\d{8}_\d{6}$"
+        assert re.match(pattern, dt_str)
+
+        # Verify full path structure
+        full_path = f"logs/{tag}/{domain_name}/{dt_str}"
+        path_pattern = r"^logs/[a-z0-9_-]+/[a-z0-9._-]+/\d{8}_\d{6}$"
+        assert re.match(path_pattern, full_path, re.IGNORECASE)
 
     def test_session_folder_contains_expected_files(self):
         """Test that session folder would contain expected files."""
         from src.merger import create_session, export_session, finalize_session
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create session folder structure
-            session_dir = Path(tmpdir) / "20250128T143045_example_com"
+            # Create session folder structure: logs/{tag}/{domain}/{datetime}/
+            session_dir = Path(tmpdir) / "health" / "allianz" / "20260130_143045"
             session_dir.mkdir(parents=True, exist_ok=True)
 
             # Create session and export
-            session = create_session("https://example.com")
+            session = create_session("https://www.allianz.com.tr")
             finalize_session(session)
 
             session_filepath = session_dir / "session.json"
@@ -407,3 +412,41 @@ class TestSessionFolderStructure:
             # Verify initial_dom.html contains HTML
             html_content = dom_filepath.read_text(encoding="utf-8")
             assert "<html>" in html_content
+
+
+class TestCLIArguments:
+    """Tests for CLI argument parsing."""
+
+    def test_cli_requires_tag_argument(self):
+        """Test that --tag is a required argument."""
+        import subprocess
+        result = subprocess.run(
+            ["python", "-m", "src.main", "--url=https://example.com"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "required" in result.stderr.lower() or "tag" in result.stderr.lower()
+
+    def test_cli_requires_url_argument(self):
+        """Test that --url is a required argument."""
+        import subprocess
+        result = subprocess.run(
+            ["python", "-m", "src.main", "--tag=test"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "required" in result.stderr.lower() or "url" in result.stderr.lower()
+
+    def test_cli_shows_help(self):
+        """Test that --help shows usage information."""
+        import subprocess
+        result = subprocess.run(
+            ["python", "-m", "src.main", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "--tag" in result.stdout
+        assert "--url" in result.stdout

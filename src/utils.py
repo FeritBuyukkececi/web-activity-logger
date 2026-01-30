@@ -54,6 +54,33 @@ def _is_ip_address(hostname: str) -> bool:
     return False
 
 
+def extract_domain_name(url: str) -> str:
+    """
+    Extract just the domain name (without TLD) from a URL.
+
+    Examples:
+        "https://www.allianz.com.tr/path" -> "allianz"
+        "https://shop.example.co.uk/path" -> "example"
+        "http://localhost/path" -> "localhost"
+        "http://192.168.1.1/path" -> "192.168.1.1"
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+
+    # Handle localhost
+    if hostname == "localhost":
+        return "localhost"
+
+    # Handle IP addresses
+    if _is_ip_address(hostname):
+        return hostname
+
+    # Use tldextract for proper domain extraction
+    extracted = tldextract.extract(url)
+
+    return extracted.domain or hostname
+
+
 def is_subdomain_of(url: str, root_domain: str) -> bool:
     """
     Check if a URL belongs to a domain or its subdomains.

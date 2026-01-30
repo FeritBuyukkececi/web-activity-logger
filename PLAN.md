@@ -300,6 +300,45 @@ logs/
 
 ---
 
+## Task 9: CLI Arguments and Log Folder Structure Changes — DONE
+
+### Description
+Modify the web-activity-logger to require `--tag` and `--url` CLI arguments, and reorganize log folder structure.
+
+### Changes Made
+
+#### `src/utils.py`
+- Added `extract_domain_name(url)` function to extract domain name without TLD
+  - `"https://www.allianz.com.tr/path"` → `"allianz"`
+  - `"https://shop.example.co.uk/path"` → `"example"`
+
+#### `src/main.py`
+- Changed CLI to require `--tag` and `--url` arguments (previously optional positional URL)
+- Changed `run_recording_session(start_url: str | None = None)` to `run_recording_session(start_url: str, tag: str)`
+- Changed datetime format from `%Y%m%dT%H%M%S` to `%Y%m%d_%H%M%S`
+- Changed folder structure from `logs/{datetime}_{domain_with_underscores}/` to `logs/{tag}/{domain_name}/{datetime}/`
+- Removed code handling optional URL (simplified main loop)
+
+#### `tests/test_utils.py`
+- Added `TestExtractDomainName` class with tests for standard URLs, multi-level TLDs, localhost, and IP addresses
+
+#### `tests/test_main.py`
+- Updated `TestSessionFolderStructure` for new folder pattern `logs/{tag}/{domain}/{YYYYMMDD_HHMMSS}/`
+- Added `TestCLIArguments` to verify required arguments
+
+#### `CLAUDE.md`
+- Updated Commands section with new CLI syntax
+- Updated File Structure section with new folder layout
+- Documented `extract_domain_name` function
+
+### Example Usage
+```bash
+python -m src.main --tag=health --url="https://www.allianz.com.tr/tr_TR/"
+# Output: logs/health/allianz/20260130_173732/session.json
+```
+
+---
+
 ## Test Commands
 
 ```bash
